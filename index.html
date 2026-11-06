@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RabiesShield — Rabies Vaccination Tracker</title>
+  <style>
+    :root {
+      --primary: #0f766e; --primary-dark: #115e59; --primary-soft: #ccfbf1;
+      --secondary: #1d4ed8; --secondary-soft: #dbeafe;
+      --amber: #d97706; --amber-soft: #fef3c7;
+      --danger: #dc2626; --danger-soft: #fee2e2;
+      --success: #15803d; --success-soft: #dcfce7;
+      --bg: #f1f5f9; --surface: #ffffff; --text: #0f172a; --muted: #64748b; --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Gujarati", "Noto Sans Devanagari", sans-serif; }
+    body { background: linear-gradient(135deg, #0f172a 0%, #134e4a 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 10px; color: var(--text); }
+    .top-bar { color: #f8fafc; text-align: center; margin-bottom: 12px; width: 100%; max-width: 420px; }
+    .top-bar h1 { font-size: 16px; font-weight: 700; }
+    .lang-pills { display: inline-flex; background: rgba(255,255,255,0.14); padding: 4px; border-radius: 999px; margin-top: 8px; gap: 4px; }
+    .lang-pill { border: none; background: transparent; color: #e2e8f0; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .lang-pill.active { background: #fff; color: var(--primary-dark); }
+    .phone-shell { width: 100%; max-width: 412px; height: 770px; background: var(--bg); border-radius: 34px; border: 8px solid #1e293b; box-shadow: 0 24px 60px rgba(0,0,0,0.45); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    .status-bar { height: 28px; background: var(--surface); padding: 0 18px; display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; font-weight: 600; color: #334155; border-bottom: 1px solid #f1f5f9; }
+    .push-toast { position: absolute; top: 36px; left: 12px; right: 12px; background: #0f172a; color: #fff; padding: 12px 14px; border-radius: 14px; box-shadow: 0 12px 28px rgba(15,23,42,0.4); z-index: 60; display: flex; gap: 10px; align-items: flex-start; transform: translateY(-160%); transition: transform 0.3s ease; }
+    .push-toast.visible { transform: translateY(0); }
+    .app-bar { background: var(--surface); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+    .app-bar-title { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; }
+    .shield-badge { width: 30px; height: 30px; border-radius: 9px; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+    .screen-content { flex: 1; overflow-y: auto; padding: 14px; }
+    .sync-banner { display: flex; align-items: center; padding: 9px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+    .sync-banner.online { background: var(--success-soft); color: #166534; border: 1px solid #86efac; }
+    .sync-banner.offline { background: var(--amber-soft); color: #92400e; border: 1px solid #fcd34d; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 11px 10px; }
+    .kpi-val { font-size: 21px; font-weight: 800; margin-bottom: 2px; }
+    .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .btn { border: none; border-radius: 11px; padding: 10px 12px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: var(--surface); color: var(--primary); border: 1.5px solid var(--primary); }
+    .btn-tonal { background: var(--primary-soft); color: var(--primary-dark); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+    .section-title { font-size: 15px; font-weight: 800; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 15px; padding: 13px; margin-bottom: 10px; }
+    .badge { padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .badge-overdue { background: var(--danger-soft); color: var(--danger); }
+    .badge-duesoon { background: var(--amber-soft); color: var(--amber); }
+    .badge-completed { background: var(--success-soft); color: var(--success); }
+    .badge-gov { background: var(--secondary-soft); color: var(--secondary); }
+    .vax-meta { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 9px; border-top: 1px solid #f1f5f9; font-size: 12px; }
+    .vax-meta span { display: block; color: var(--muted); font-size: 11px; }
+    .seg-tabs { display: flex; background: #e2e8f0; padding: 3px; border-radius: 10px; margin-bottom: 12px; }
+    .seg-tab { flex: 1; border: none; background: transparent; padding: 7px 6px; border-radius: 8px; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; }
+    .seg-tab.active { background: var(--surface); color: var(--text); }
+    .form-group { margin-bottom: 11px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; }
+    .input, select { width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 13.5px; background: #fff; color: var(--text); }
+    .map-canvas { height: 185px; border-radius: 14px; background: #e0f2fe; position: relative; overflow: hidden; border: 1px solid #bae6fd; margin-bottom: 12px; }
+    .map-pin { position: absolute; transform: translate(-50%, -100%); cursor: pointer; }
+    .map-pin.selected { transform: translate(-50%, -100%) scale(1.18); z-index: 10; }
+    .bottom-nav { height: 64px; background: var(--surface); border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(5, 1fr); }
+    .nav-item { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--muted); cursor: pointer; font-size: 10.5px; font-weight: 600; }
+    .nav-item .nav-icon { padding: 2px 12px; border-radius: 999px; font-size: 16px; }
+    .nav-item.active { color: var(--primary-dark); font-weight: 700; }
+    .nav-item.active .nav-icon { background: var(--primary-soft); }
+    .modal-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,0.55); z-index: 50; display: none; align-items: flex-end; }
+    .modal-backdrop.open { display: flex; }
+    .modal-sheet { width: 100%; max-height: 86%; background: var(--surface); border-radius: 22px 22px 0 0; padding: 18px 16px 22px; overflow-y: auto; }
+    @media (max-width: 460px) {
+      body { padding: 0; }
+      .top-bar { padding: 8px 8px 4px; margin-bottom: 4px; }
+      .phone-shell { max-width: 100%; height: calc(100vh - 76px); border-radius: 0; border: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <h1>🐾 RabiesShield — Smart Rabies Vaccination Tracker</h1>
+    <div class="lang-pills">
+      <button class="lang-pill active" onclick="setLang('en')" id="pill-en">English</button>
+      <button class="lang-pill" onclick="setLang('gu')" id="pill-gu">ગુજરાતી</button>
+      <button class="lang-pill" onclick="setLang('hi')" id="pill-hi">हिन्दी</button>
+    </div>
+  </div>
+
+  <div class="phone-shell">
+    <div class="status-bar">
+      <span>09:41 IST</span>
+      <span id="status-conn">5G • Cloud Sync ✓</span>
+    </div>
+
+    <div class="push-toast" id="push-toast">
+      <div style="font-size:20px;">💉</div>
+      <div>
+        <div id="toast-title" style="font-size:13px;font-weight:700;">Reminder</div>
+        <div id="toast-body" style="font-size:12px;color:#cbd5e1;margin-top:2px;"></div>
+      </div>
+    </div>
+
+    <div class="app-bar">
+      <div class="app-bar-title">
+        <span class="shield-badge">🛡️</span>
+        <span id="header-title">RabiesShield</span>
+      </div>
+      <button class="btn btn-tonal" style="padding:6px 10px;font-size:11.5px;" onclick="toggleOfflineMode()" id="offline-btn">☁️ Online</button>
+    </div>
+
+    <div class="screen-content" id="screen-container"></div>
+
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="nav-item active" onclick="switchTab('dashboard')" id="tab-dashboard"><span class="nav-icon">📊</span><span id="lbl-dashboard">Dashboard</span></button>
+      <button class="nav-item" onclick="switchTab('pets')" id="tab-pets"><span class="nav-icon">🐕</span><span id="lbl-pets">My Pets</span></button>
+      <button class="nav-item" onclick="switchTab('vaccinations')" id="tab-vaccinations"><span class="nav-icon">💉</span><span id="lbl-vaccinations">Vaccines</span></button>
+      <button class="nav-item" onclick="switchTab('clinics')" id="tab-clinics"><span class="nav-icon">📍</span><span id="lbl-clinics">Clinics</span></button>
+      <button class="nav-item" onclick="switchTab('settings')" id="tab-settings"><span class="nav-icon">🔄</span><span id="lbl-settings">Sync</span></button>
+    </nav>
+
+    <div class="modal-backdrop" id="modal-backdrop" onclick="if(event.target===this)closeModal()">
+      <div class="modal-sheet" id="modal-content"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "rabiesshield_live_v1";
+    const I18N = {
+      en: {
+        appTitle: "RabiesShield", tagline: "Smart Rabies Vaccination & Pet Health Tracker",
+        dashboard: "Dashboard", pets: "My Pets", vaccinations: "Vaccines", clinics: "Clinics", settings: "Sync",
+        login: "Log In", register: "Create Account", demoLogin: "Quick Demo Sign In",
+        email: "Email Address", password: "Password", fullName: "Full Name", phone: "Phone Number",
+        syncedStatus: "All pet records backed up & synced", offlineStatus: "Offline mode: changes saved locally",
+        totalPets: "Pets", overdueAlert: "Overdue", completedDoses: "Protected",
+        addPet: "+ Add Pet", addVaccine: "+ Log / Schedule", upcomingTitle: "Rabies Vaccination Schedule",
+        overdue: "Overdue", dueSoon: "Due Soon", completed: "Protected",
+        administered: "Last Dose", nextDue: "Next Booster Due", markDone: "✓ Mark Booster Given Today",
+        searchClinics: "Search clinics in Godhra, Vadodara, Anand...", openNow: "Open Now", govCenter: "Gov Rabies Center",
+        directions: "Directions", call: "Call", cloudSyncTitle: "Cloud Backup & Device Sync",
+        syncNow: "Sync Now", exportJson: "Export Backup", testReminder: "🔔 Send Test Reminder Alert",
+        signOut: "Sign Out", save: "Save", cancel: "Cancel", petName: "Pet Name", species: "Species",
+        breed: "Breed", weight: "Weight (kg)", microchip: "Microchip / Tag ID",
+        protocol: "Rabies Protocol", vaccineBrand: "Vaccine Brand", clinicName: "Veterinary Clinic"
+      },
+      gu: {
+        appTitle: "રેબીઝ શિલ્ડ", tagline: "હડકવા રસીકરણ અને પાલતુ આરોગ્ય ટ્રેકર",
+        dashboard: "ડેશબોર્ડ", pets: "મારા પાલતુ", vaccinations: "રસીકરણ", clinics: "દવાખાના", settings: "સિંક",
+        login: "લૉગ ઇન કરો", register: "નવું ખાતું બનાવો", demoLogin: "ડેમો ખાતાથી પ્રવેશ કરો",
+        email: "ઇમેઇલ સરનામું", password: "પાસવર્ડ", fullName: "પૂરું નામ", phone: "મોબાઇલ નંબર",
+        syncedStatus: "તમામ માહિતી ક્લાઉડમાં સુરક્ષિત અને સિંક છે", offlineStatus: "ઑફલાઇન મોડ: ડેટા ડિવાઇસમાં સેવ થયો છે",
+        totalPets: "પાલતુ", overdueAlert: "સમય વીત્યો", completedDoses: "સુરક્ષિત",
+        addPet: "+ પાલતુ ઉમેરો", addVaccine: "+ રસી નોંધો", upcomingTitle: "હડકવા રસીકરણ શેડ્યૂલ",
+        overdue: "સમય વીતી ગયો", dueSoon: "ટૂંક સમયમાં બાકી", completed: "પૂર્ણ / સુરક્ષિત",
+        administered: "છેલ્લો ડોઝ", nextDue: "આગામી બૂસ્ટર તારીખ", markDone: "✓ આજે રસી અપાઈ ગઈ",
+        searchClinics: "ગોધરા, વડોદરા, આણંદમાં દવાખાના શોધો...", openNow: "ખુલ્લું છે", govCenter: "સરકારી રસી કેન્દ્ર",
+        directions: "રસ્તો જુઓ", call: "કૉલ", cloudSyncTitle: "ક્લાઉડ બેકઅપ અને ડિવાઇસ સિંક",
+        syncNow: "અત્યારે સિંક કરો", exportJson: "બેકઅપ ડાઉનલોડ", testReminder: "🔔 ટેસ્ટ રસીકરણ રીમાઇન્ડર મોકલો",
+        signOut: "લૉગ આઉટ કરો", save: "સાચવો", cancel: "રદ કરો", petName: "પાલતુનું નામ", species: "પ્રજાતિ",
+        breed: "જાતિ (Breed)", weight: "વજન (કિ.ગ્રા.)", microchip: "માઇક્રોચિપ / ટેગ નંબર",
+        protocol: "હડકવા રસીનો પ્રકાર", vaccineBrand: "રસીનું નામ", clinicName: "પશુ દવાખાનું"
+      },
+      hi: {
+        appTitle: "रेबीज शील्ड", tagline: "स्मार्ट रेबीज टीकाकरण और पालतू स्वास्थ्य ट्रैकर",
+        dashboard: "डैशबोर्ड", pets: "मेरे पालतू", vaccinations: "टीकाकरण", clinics: "क्लिनिक", settings: "सिंक",
+        login: "लॉग इन करें", register: "नया खाता बनाएं", demoLogin: "डेमो लॉग इन करें",
+        email: "ईमेल पता", password: "पासवर्ड", fullName: "पूरा नाम", phone: "मोबाइल नंबर",
+        syncedStatus: "सभी रिकॉर्ड क्लाउड में सुरक्षित और सिंक हैं", offlineStatus: "ऑफ़लाइन मोड: डेटा लोकल सेव है",
+        totalPets: "पालतू", overdueAlert: "ओवरड्यू", completedDoses: "सुरक्षित",
+        addPet: "+ पालतू जोड़ें", addVaccine: "+ टीका जोड़ें", upcomingTitle: "रेबीज टीकाकरण अनुसूची",
+        overdue: "अतिदेय (Overdue)", dueSoon: "जल्द देय", completed: "पूर्ण / सुरक्षित",
+        administered: "पिछला टीका", nextDue: "अगली बूस्टर तिथि", markDone: "✓ आज बूस्टर लग गया",
+        searchClinics: "गोधरा, वडोदरा, आणंद में क्लिनिक खोजें...", openNow: "अभी खुला है", govCenter: "सरकारी केंद्र",
+        directions: "दिशा-निर्देश", call: "कॉल", cloudSyncTitle: "क्लाउड बैकअप और डिवाइस सिंक",
+        syncNow: "अभी सिंक करें", exportJson: "बैकअप डाउनलोड", testReminder: "🔔 टेस्ट रिमाइंडर भेजें",
+        signOut: "लॉग आउट करें", save: "सहेजें", cancel: "रद्द करें", petName: "पालतू का नाम", species: "प्रजाति",
+        breed: "नस्ल (Breed)", weight: "वज़न (कि.ग्रा.)", microchip: "माइक्रोचिप / टैग आईडी",
+        protocol: "टीकाकरण प्रोटोकॉल", vaccineBrand: "वैक्सीन ब्रांड", clinicName: "पशु चिकित्सालय"
+      }
+    };
+
+    const defaultState = {
+      lang: "gu", isAuthenticated: true, authMode: "login",
+      user: { fullName: "Aarav Patel", email: "aarav.patel@example.in", phone: "+91 98250 44112" },
+      activeTab: "dashboard", vaxFilter: "all", isOffline: false, pendingWrites: 0,
+      lastSynced: new Date().toLocaleString(), clinicSearch: "", selectedClinicId: "c1",
+      pets: [
+        { id: "p1", name: "Bruno", species: "Dog", breed: "Labrador Retriever", age: "2 yr", weightKg: 28.5, microchip: "IN-GJ-900142" },
+        { id: "p2", name: "Sheru", species: "Dog", breed: "Indie", age: "1 yr", weightKg: 17.0, microchip: "TAG-GDH-204" },
+        { id: "p3", name: "Moti", species: "Cat", breed: "Shorthair", age: "9 mo", weightKg: 3.8, microchip: "IN-GJ-441210" }
+      ],
+      vaccinations: [
+        { id: "v1", petId: "p2", petName: "Sheru", vaccineName: "Raksharab", protocol: "1-Year Booster", administeredDate: "2025-10-28", nextDueDate: "2026-10-28", clinicName: "Gov Veterinary Polyclinic, Godhra", isCompleted: false },
+        { id: "v2", petId: "p1", petName: "Bruno", vaccineName: "Nobivac Rabies", protocol: "Annual Booster", administeredDate: "2025-11-15", nextDueDate: "2026-11-15", clinicName: "Panchmahal Pet Care, Godhra", isCompleted: false },
+        { id: "v3", petId: "p3", petName: "Moti", vaccineName: "Defensor 3", protocol: "Primary Dose (12 Wks)", administeredDate: "2026-06-10", nextDueDate: "2027-06-10", clinicName: "Vadodara Municipal Vet Center", isCompleted: true }
+      ],
+      clinics: [
+        { id: "c1", name: "Gov. Veterinary Polyclinic - Godhra", address: "Civil Lines Road, Near Collector Office, Godhra", dist: "1.2 km", rating: "4.7", gov: true, phone: "+912672242310", lat: 22.7756, lng: 73.6149, x: 54, y: 42 },
+        { id: "c2", name: "Panchmahal Companion Pet Care", address: "Bamroli Road, Godhra, Gujarat 389001", dist: "2.8 km", rating: "4.8", gov: false, phone: "+919825011223", lat: 22.7842, lng: 73.6280, x: 68, y: 33 },
+        { id: "c3", name: "Vadodara Municipal Rabies Control Center", address: "Karelibaug, Vadodara, Gujarat", dist: "72.4 km", rating: "4.6", gov: true, phone: "+912652481352", lat: 22.3225, lng: 73.1970, x: 35, y: 74 },
+        { id: "c4", name: "Kamdhenu Univ. Veterinary Hospital", address: "Veterinary Campus, Anand, Gujarat", dist: "78.0 km", rating: "4.9", gov: true, phone: "+912692261486", lat: 22.5525, lng: 72.9648, x: 22, y: 58 }
+      ]
+    };
+
+    let state = (() => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? Object.assign({}, defaultState, JSON.parse(saved)) : defaultState;
+      } catch (_) { return defaultState; }
+    })();
+
+    function persist() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+    }
+
+    function t(k) { return (I18N[state.lang] && I18N[state.lang][k]) || I18N.en[k] || k; }
+
+    function evaluateStatus(nextDueStr, isCompleted) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const due = new Date(nextDueStr + "T00:00:00");
+      const diff = Math.round((due - today) / 86400000);
+      if (diff < 0) return "overdue";
+      if (diff <= 21) return "duesoon";
+      return isCompleted ? "completed" : "duesoon";
+    }
+
+    function showToast(title, body) {
+      document.getElementById("toast-title").textContent = title;
+      document.getElementById("toast-body").textContent = body;
+      const el = document.getElementById("push-toast");
+      el.classList.add("visible");
+      clearTimeout(window._tt);
+      window._tt = setTimeout(() => el.classList.remove("visible"), 4000);
+    }
+
+    function setLang(lang) {
+      state.lang = lang; persist();
+      ["en", "gu", "hi"].forEach(c => document.getElementById("pill-" + c).classList.toggle("active", c === lang));
+      renderChrome(); renderScreen();
+    }
+
+    function toggleOfflineMode() {
+      state.isOffline = !state.isOffline;
+      if (!state.isOffline) {
+        state.pendingWrites = 0;
+        state.lastSynced = new Date().toLocaleString();
+        showToast("Cloud Sync", t("syncedStatus"));
+      }
+      persist(); renderChrome(); renderScreen();
+    }
+
+    function switchTab(tab) {
+      state.activeTab = tab; persist();
+      ["dashboard", "pets", "vaccinations", "clinics", "settings"].forEach(id => {
+        document.getElementById("tab-" + id).classList.toggle("active", id === tab);
+      });
+      renderScreen();
+    }
+
+    function renderChrome() {
+      ["en", "gu", "hi"].forEach(c => document.getElementById("pill-" + c).classList.toggle("active", c === state.lang));
+      document.getElementById("header-title").textContent = t("appTitle");
+      document.getElementById("lbl-dashboard").textContent = t("dashboard");
+      document.getElementById("lbl-pets").textContent = t("pets");
+      document.getElementById("lbl-vaccinations").textContent = t("vaccinations");
+      document.getElementById("lbl-clinics").textContent = t("clinics");
+      document.getElementById("lbl-settings").textContent = t("settings");
+      document.getElementById("offline-btn").textContent = state.isOffline ? "⚡ Offline" : "☁️ Online";
+      document.getElementById("status-conn").textContent = state.isOffline ? "Offline • Local Cache" : "5G • Cloud Sync ✓";
+      document.getElementById("bottom-nav").style.display = state.isAuthenticated ? "grid" : "none";
+    }
+
+    function renderSyncBanner() {
+      return `<div class="sync-banner ${state.isOffline ? 'offline' : 'online'}">${state.isOffline ? '⏳ ' + t("offlineStatus") : '✅ ' + t("syncedStatus")}</div>`;
+    }
+
+    function renderVaxCard(v) {
+      const st = evaluateStatus(v.nextDueDate, v.isCompleted);
+      const b = st === "overdue" ? `<span class="badge badge-overdue">${t("overdue")}</span>`
+              : st === "duesoon" ? `<span class="badge badge-duesoon">${t("dueSoon")}</span>`
+              : `<span class="badge badge-completed">${t("completed")}</span>`;
+      return `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div>
+            <div style="font-size:15px;font-weight:800;">🐾 ${v.petName} • ${v.vaccineName}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${v.protocol} • ${v.clinicName}</div>
+          </div>${b}
+        </div>
+        <div class="vax-meta">
+          <div><span>${t("administered")}</span><strong>${v.administeredDate || "—"}</strong></div>
+          <div style="text-align:right;"><span>${t("nextDue")}</span><strong style="color:${st==='overdue'?'var(--danger)':'inherit'}">${v.nextDueDate}</strong></div>
+        </div>
+        ${st !== "completed" ? `<button class="btn btn-outline" style="width:100%;margin-top:10px;padding:8px;" onclick="markDone('${v.id}')">${t("markDone")}</button>` : ""}
+      </div>`;
+    }
+
+    function renderScreen() {
+      const el = document.getElementById("screen-container");
+      if (!state.isAuthenticated) {
+        const isReg = state.authMode === "register";
+        el.innerHTML = `<div style="padding:18px 4px;">
+          <div style="text-align:center;margin-bottom:20px;">
+            <div style="width:56px;height:56px;border-radius:16px;background:var(--primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:8px;">🛡️</div>
+            <h2 style="font-size:21px;font-weight:800;">${t("appTitle")}</h2>
+            <p style="font-size:12.5px;color:var(--muted);margin-top:4px;">${t("tagline")}</p>
+          </div>
+          ${isReg ? `<div class="form-group"><label>${t("fullName")}</label><input class="input" id="a-name" placeholder="Aarav Patel"/></div>
+          <div class="form-group"><label>${t("phone")}</label><input class="input" id="a-phone" placeholder="+91 98250 44112"/></div>` : ""}
+          <div class="form-group"><label>${t("email")}</label><input class="input" id="a-email" value="${state.user.email}"/></div>
+          <div class="form-group"><label>${t("password")}</label><input class="input" type="password" value="12345678"/></div>
+          <button class="btn btn-primary" style="width:100%;margin-top:6px;" onclick="submitAuth()">${isReg ? t("register") : t("login")}</button>
+          <button class="btn btn-tonal" style="width:100%;margin-top:8px;" onclick="state.isAuthenticated=true;persist();renderChrome();renderScreen()">⚡ ${t("demoLogin")}</button>
+          <div style="text-align:center;margin-top:12px;">
+            <button style="background:none;border:none;color:var(--primary);font-weight:700;cursor:pointer;" onclick="state.authMode='${isReg?'login':'register'}';renderScreen()">${isReg ? t("login") : t("register")}</button>
+          </div>
+        </div>`;
+        return;
+      }
+
+      if (state.activeTab === "dashboard") {
+        const ov = state.vaccinations.filter(v => evaluateStatus(v.nextDueDate, v.isCompleted) === "overdue").length;
+        const ok = state.vaccinations.filter(v => evaluateStatus(v.nextDueDate, v.isCompleted) === "completed").length;
+        el.innerHTML = `${renderSyncBanner()}
+          <div class="kpi-grid">
+            <div class="kpi-card"><div class="kpi-val" style="color:var(--primary)">${state.pets.length}</div><div class="kpi-label">${t("totalPets")}</div></div>
+            <div class="kpi-card"><div class="kpi-val" style="color:${ov>0?'var(--danger)':'var(--success)'}">${ov}</div><div class="kpi-label">${t("overdueAlert")}</div></div>
+            <div class="kpi-card"><div class="kpi-val" style="color:var(--secondary)">${ok}</div><div class="kpi-label">${t("completedDoses")}</div></div>
+          </div>
+          <div class="action-row">
+            <button class="btn btn-outline" onclick="openPetModal()">${t("addPet")}</button>
+            <button class="btn btn-primary" onclick="openVaxModal()">${t("addVaccine")}</button>
+          </div>
+          <div class="section-title"><span>${t("upcomingTitle")}</span></div>
+          ${state.vaccinations.map(renderVaxCard).join("")}`;
+      } else if (state.activeTab === "pets") {
+        el.innerHTML = `<div class="section-title"><span>${t("pets")} (${state.pets.length})</span>
+          <button class="btn btn-primary" style="padding:7px 12px;font-size:12px;" onclick="openPetModal()">${t("addPet")}</button></div>
+          ${state.pets.map(p => `<div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:16px;font-weight:800;">${p.species==='Cat'?'🐱':'🐕'} ${p.name}</div>
+              <div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${p.breed} • ${p.weightKg} kg</div>
+              <div style="font-size:11.5px;color:var(--primary);margin-top:3px;font-weight:600;">ID: ${p.microchip}</div>
+            </div>
+            <button class="btn btn-tonal" style="padding:7px 10px;" onclick="openVaxModal('${p.id}')">+ 💉</button>
+          </div>`).join("")}`;
+      } else if (state.activeTab === "vaccinations") {
+        const list = state.vaccinations.filter(v => {
+          const s = evaluateStatus(v.nextDueDate, v.isCompleted);
+          if (state.vaxFilter === "due") return s !== "completed";
+          if (state.vaxFilter === "done") return s === "completed";
+          return true;
+        });
+        el.innerHTML = `<div class="seg-tabs">
+          <button class="seg-tab ${state.vaxFilter==='all'?'active':''}" onclick="state.vaxFilter='all';renderScreen()">All (${state.vaccinations.length})</button>
+          <button class="seg-tab ${state.vaxFilter==='due'?'active':''}" onclick="state.vaxFilter='due';renderScreen()">${t("dueSoon")}</button>
+          <button class="seg-tab ${state.vaxFilter==='done'?'active':''}" onclick="state.vaxFilter='done';renderScreen()">${t("completed")}</button>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:12px;" onclick="openVaxModal()">${t("addVaccine")}</button>
+        ${list.map(renderVaxCard).join("")}`;
+      } else if (state.activeTab === "clinics") {
+        const q = state.clinicSearch.trim().toLowerCase();
+        const cs = state.clinics.filter(c => !q || c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q));
+        el.innerHTML = `<div class="form-group"><input class="input" placeholder="${t("searchClinics")}" value="${state.clinicSearch}" oninput="state.clinicSearch=this.value;renderScreen()"/></div>
+          <div class="map-canvas">
+            <svg width="100%" height="100%" viewBox="0 0 400 185" preserveAspectRatio="none">
+              <rect width="400" height="185" fill="#e0f2fe"/><path d="M0,135 Q120,105 220,140 T400,110 L400,185 L0,185 Z" fill="#dcfce7"/>
+              <path d="M40,0 L165,185 M0,82 L400,62 M240,0 L195,185" stroke="#fff" stroke-width="5" fill="none"/>
+              <circle cx="215" cy="80" r="7" fill="#2563eb" stroke="#fff" stroke-width="2.5"/>
+            </svg>
+            ${cs.map(c => `<div class="map-pin ${state.selectedClinicId===c.id?'selected':''}" style="left:${c.x}%;top:${c.y}%;" onclick="state.selectedClinicId='${c.id}';renderScreen()">
+              <div style="background:${c.gov?'#1d4ed8':'#dc2626'};color:#fff;padding:3px 7px;border-radius:999px;font-size:10.5px;font-weight:800;">🏥 ${c.dist}</div>
+            </div>`).join("")}
+          </div>
+          ${cs.map(c => `<div class="card" style="border-color:${state.selectedClinicId===c.id?'var(--primary)':'var(--border)'}">
+            <div style="display:flex;justify-content:space-between;gap:6px;"><div style="font-size:14px;font-weight:800;">${c.name}</div>
+            <span class="badge ${c.gov?'badge-gov':'badge-completed'}">${c.gov?t("govCenter"):t("openNow")}</span></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">${c.address}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+              <span style="font-size:12px;font-weight:700;">⭐ ${c.rating} • ${c.dist}</span>
+              <div style="display:flex;gap:6px;">
+                <a class="btn btn-tonal" style="padding:6px 10px;font-size:11.5px;text-decoration:none;" href="tel:${c.phone}">📞 ${t("call")}</a>
+                <a class="btn btn-primary" style="padding:6px 10px;font-size:11.5px;text-decoration:none;" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}">🧭 ${t("directions")}</a>
+              </div>
+            </div>
+          </div>`).join("")}`;
+      } else {
+        el.innerHTML = `<div class="card"><div style="font-weight:800;font-size:15px;">👤 ${state.user.fullName}</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${state.user.email} • ${state.user.phone}</div></div>
+          ${renderSyncBanner()}
+          <div class="card">
+            <div style="font-weight:800;font-size:14px;margin-bottom:4px;">${t("cloudSyncTitle")}</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Last synced: ${state.lastSynced}</div>
+            <div class="action-row" style="margin-bottom:0;">
+              <button class="btn btn-primary" onclick="state.isOffline=false;state.lastSynced=new Date().toLocaleString();persist();showToast('Cloud Sync',t('syncedStatus'));renderChrome();renderScreen()">🔄 ${t("syncNow")}</button>
+              <button class="btn btn-outline" onclick="exportBackup()">⬇️ ${t("exportJson")}</button>
+            </div>
+          </div>
+          <div class="card"><button class="btn btn-tonal" style="width:100%;" onclick="notifyReminder('Sheru','Raksharab','Tomorrow 09:00 AM')">${t("testReminder")}</button></div>
+          <button class="btn btn-danger" style="width:100%;margin-top:6px;" onclick="state.isAuthenticated=false;persist();renderChrome();renderScreen()">🚪 ${t("signOut")}</button>`;
+      }
+    }
+
+    function submitAuth() {
+      const n = document.getElementById("a-name"), p = document.getElementById("a-phone"), e = document.getElementById("a-email");
+      if (n && n.value.trim()) state.user.fullName = n.value.trim();
+      if (p && p.value.trim()) state.user.phone = p.value.trim();
+      if (e && e.value.trim()) state.user.email = e.value.trim();
+      state.isAuthenticated = true; persist(); renderChrome(); renderScreen();
+    }
+
+    function markDone(id) {
+      const r = state.vaccinations.find(v => v.id === id); if (!r) return;
+      const now = new Date(); const next = new Date(now); next.setFullYear(now.getFullYear() + 1);
+      r.administeredDate = now.toISOString().slice(0,10);
+      r.nextDueDate = next.toISOString().slice(0,10);
+      r.isCompleted = true; persist();
+      notifyReminder(r.petName, r.vaccineName, r.nextDueDate); renderScreen();
+    }
+
+    function openPetModal() {
+      document.getElementById("modal-content").innerHTML = `
+        <h3 style="font-size:17px;font-weight:800;margin-bottom:12px;">🐾 ${t("addPet")}</h3>
+        <div class="form-group"><label>${t("petName")}</label><input class="input" id="p-name" placeholder="Bruno / Moti"/></div>
+        <div class="form-group"><label>${t("species")}</label><select id="p-sp"><option value="Dog">Dog (શ્વાન / कुत्ता)</option><option value="Cat">Cat (બિલાડી / बिल्ली)</option></select></div>
+        <div class="form-group"><label>${t("breed")}</label><input class="input" id="p-br" placeholder="Labrador / Indie"/></div>
+        <div class="action-row">
+          <div class="form-group" style="margin:0;"><label>${t("weight")}</label><input class="input" id="p-wt" type="number" value="15"/></div>
+          <div class="form-group" style="margin:0;"><label>${t("microchip")}</label><input class="input" id="p-id" placeholder="TAG-101"/></div>
+        </div>
+        <div class="action-row" style="margin-top:14px;margin-bottom:0;">
+          <button class="btn btn-outline" onclick="closeModal()">${t("cancel")}</button>
+          <button class="btn btn-primary" onclick="savePet()">${t("save")}</button>
+        </div>`;
+      document.getElementById("modal-backdrop").classList.add("open");
+    }
+
+    function savePet() {
+      const name = document.getElementById("p-name").value.trim(); if (!name) return;
+      state.pets.push({
+        id: "p" + Date.now(), name,
+        species: document.getElementById("p-sp").value,
+        breed: document.getElementById("p-br").value.trim() || "Indie",
+        weightKg: parseFloat(document.getElementById("p-wt").value) || 12,
+        microchip: document.getElementById("p-id").value.trim() || "TAG-" + Math.floor(100 + Math.random()*900)
+      });
+      persist(); closeModal(); renderScreen();
+    }
+
+    function openVaxModal(petId) {
+      const today = new Date().toISOString().slice(0,10);
+      const nextYr = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0,10);
+      document.getElementById("modal-content").innerHTML = `
+        <h3 style="font-size:17px;font-weight:800;margin-bottom:12px;">💉 ${t("addVaccine")}</h3>
+        <div class="form-group"><label>${t("petName")}</label><select id="v-pet">${state.pets.map(p=>`<option value="${p.id}" ${p.id===petId?'selected':''}>${p.name} (${p.breed})</option>`).join("")}</select></div>
+        <div class="form-group"><label>${t("vaccineBrand")}</label><input class="input" id="v-brand" value="Nobivac Rabies"/></div>
+        <div class="form-group"><label>${t("protocol")}</label>
+          <select id="v-proto" onchange="calcDue()">
+            <option value="Annual Booster" data-y="1">Annual Booster (+1 Year)</option>
+            <option value="Primary Dose (12 Wks)" data-y="1">Primary Dose 12 Wks (+1 Year)</option>
+            <option value="3-Year Booster" data-y="3">3-Year Booster (+3 Years)</option>
+            <option value="Post-Exposure PEP" data-d="3">Post-Exposure PEP (+3 Days)</option>
+          </select>
+        </div>
+        <div class="action-row">
+          <div class="form-group" style="margin:0;"><label>${t("administered")}</label><input class="input" type="date" id="v-given" value="${today}" onchange="calcDue()"/></div>
+          <div class="form-group" style="margin:0;"><label>${t("nextDue")}</label><input class="input" type="date" id="v-due" value="${nextYr}"/></div>
+        </div>
+        <div class="form-group" style="margin-top:10px;"><label>${t("clinicName")}</label><input class="input" id="v-clinic" value="Gov. Veterinary Polyclinic - Godhra"/></div>
+        <div class="action-row" style="margin-top:14px;margin-bottom:0;">
+          <button class="btn btn-outline" onclick="closeModal()">${t("cancel")}</button>
+          <button class="btn btn-primary" onclick="saveVax()">${t("save")}</button>
+        </div>`;
+      document.getElementById("modal-backdrop").classList.add("open");
+    }
+
+    function calcDue() {
+      const g = document.getElementById("v-given").value, s = document.getElementById("v-proto"), o = s.options[s.selectedIndex];
+      if (!g) return; const dt = new Date(g + "T00:00:00");
+      if (o.dataset.d) dt.setDate(dt.getDate() + parseInt(o.dataset.d,10));
+      else dt.setFullYear(dt.getFullYear() + parseInt(o.dataset.y||"1",10));
+      document.getElementById("v-due").value = dt.toISOString().slice(0,10);
+    }
+
+    function saveVax() {
+      const petId = document.getElementById("v-pet").value, pet = state.pets.find(p => p.id === petId);
+      const vaccineName = document.getElementById("v-brand").value.trim() || "Nobivac Rabies";
+      const nextDueDate = document.getElementById("v-due").value;
+      state.vaccinations.unshift({
+        id: "v" + Date.now(), petId, petName: pet ? pet.name : "Pet", vaccineName,
+        protocol: document.getElementById("v-proto").value,
+        administeredDate: document.getElementById("v-given").value, nextDueDate,
+        clinicName: document.getElementById("v-clinic").value.trim(), isCompleted: true
+      });
+      persist(); closeModal(); notifyReminder(pet ? pet.name : "Pet", vaccineName, nextDueDate); renderScreen();
+    }
+
+    function notifyReminder(pet, vax, due) {
+      if (state.lang === "gu") showToast(`હડકવા રસી રીમાઇન્ડર (${pet})`, `${pet} માટે ${vax} નો આગામી ડોઝ: ${due}`);
+      else if (state.lang === "hi") showToast(`रेबीज रिमाइंडर (${pet})`, `${pet} के लिए ${vax} की अगली तिथि: ${due}`);
+      else showToast(`Reminder Set: ${pet}`, `${vax} booster alert scheduled for ${due}`);
+    }
+
+    function exportBackup() {
+      const b = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "rabiesshield_backup.json"; a.click();
+    }
+
+    function closeModal() { document.getElementById("modal-backdrop").classList.remove("open"); }
+
+    renderChrome(); renderScreen();
+  </script>
+</body>
+</html>
